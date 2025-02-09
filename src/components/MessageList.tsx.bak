@@ -1,0 +1,170 @@
+import { VariableSizeList as List } from 'react-window';
+// import { List } from 'react-virtualized'
+import { Message } from '../types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import MessageItem from './MessageItem';
+import React from 'react';
+import { info } from '@tauri-apps/plugin-log';
+
+type MessageListProps = {
+  messages: Message[],
+  width: number,
+  height: number
+}
+
+export default function MessageList(props: MessageListProps) {
+  const listRef = useRef<List>(null);
+  const listOuterRef = useRef(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [isAtTop, setIsAtTop] = useState(true);
+  const sizeMap = useRef<number[]>([]);
+  const getItemSize = (index: number) => {
+    const result = sizeMap.current[index] || 80;
+    info(`sizeMap: ${sizeMap.current.length}, getItemSize: ${result}`)
+    return result;
+  }
+  const MemoizedMessageItem = React.memo(MessageItem);
+
+  // 处理滚动事件，判断是否在底部
+  const handleScroll = ({ scrollOffset }:{scrollOffset:number}) => {
+    const outerElement = listOuterRef.current;
+    if (!outerElement) return;
+
+    info(`scrollOffset: ${scrollOffset}`)
+    // const { scrollHeight, clientHeight } = outerElement;
+    // // 判断是否触底
+    // if (scrollOffset + clientHeight >= scrollHeight) {
+    //   info('触底了！可以加载更多数据');
+    //   // 在这里执行加载更多数据的逻辑
+    //   setIsAtBottom(true);
+    // } else {
+    //   setIsAtBottom(false);
+    // }
+
+    // if (scrollOffset === 0) {
+    //   info('触底了！可以触发自动滚动');
+    //   setIsAtTop(true);
+    // } else {
+    //   setIsAtTop(false);
+    // }
+  };
+
+  // const setItemHeight = (index: number, height: number) => {
+  //   sizeMap.current[index] = height;
+  //   listRef.current?.resetAfterIndex(index);
+  // };
+  const setItemHeight = useCallback((index: number, height: number) => {
+    sizeMap.current[index] = height;
+    listRef.current?.resetAfterIndex(index);
+  }, []);
+
+  // 当新消息到达时自动滚动到底部
+  // useEffect(() => {
+  //   if (isAtBottom) {
+  //     listRef.current?.scrollToItem(props.messages.length - 1, "end");
+  //   }
+  // }, [props.messages.length]);
+
+
+  return (
+    <div className="chat-list-container">
+      <List
+        ref={listRef}
+        height={props.height}
+        width={props.width}
+        itemCount={props.messages.length}
+        itemSize={getItemSize}
+        onScroll={handleScroll}
+        outerRef={listOuterRef}
+        itemKey={index => props.messages[index].uuid}
+      >
+        {({ index, style }) => (
+          <MemoizedMessageItem message={props.messages[index]} index={index} itemHeightCallback={setItemHeight} />
+        )}
+      </List>
+    </div>
+  );
+};
+// import { VariableSizeList as List } from 'react-window';
+// import { Message } from '../types';
+// import { useCallback, useEffect, useRef, useState } from 'react';
+// import MessageItem from './MessageItem';
+// import React from 'react';
+// import { info } from '@tauri-apps/plugin-log';
+
+// type MessageListProps = {
+//   messages: Message[];
+//   width: number;
+//   height: number;
+// };
+
+// export default React.memo(function MessageList(props: MessageListProps) {
+//   const listRef = useRef<List>(null);
+//   const listOuterRef = useRef<HTMLDivElement>(null);
+//   const [isAtBottom, setIsAtBottom] = useState(true);
+//   const [isAtTop, setIsAtTop] = useState(false);
+//   const sizeMap = useRef<number[]>([]);
+
+//   // 持久化高度缓存
+//   useEffect(() => {
+//     const savedSizes = localStorage.getItem('messageSizes');
+//     if (savedSizes) sizeMap.current = JSON.parse(savedSizes);
+//   }, []);
+
+//   const getItemSize = useCallback((index: number) => {
+//     return sizeMap.current[index] || 80;
+//   }, []);
+
+
+//   const setItemHeight = useCallback((index: number, height: number) => {
+//     sizeMap.current[index] = height;
+//     listRef.current?.resetAfterIndex(index);
+//   }, []);
+//   // const setItemHeight = useCallback((index: number, height: number) => {
+//   //   sizeMap.current[index] = height;
+//   //   localStorage.setItem('messageSizes', JSON.stringify(sizeMap.current));
+//   //   listRef.current?.resetAfterIndex(index);
+//   // }, []);
+
+//   const handleScroll = useCallback(({ scrollOffset }: { scrollOffset: number }) => {
+//     const outerElement = listOuterRef.current;
+//     if (!outerElement) return;
+
+//     const { clientHeight } = outerElement;
+//     const newIsAtBottom = scrollOffset <= 50; // 反转布局后逻辑
+//     const newIsAtTop = scrollOffset + clientHeight >= outerElement.scrollHeight - 50;
+
+//     if (newIsAtBottom !== isAtBottom) setIsAtBottom(newIsAtBottom);
+//     if (newIsAtTop !== isAtTop) setIsAtTop(newIsAtTop);
+//   }, [isAtBottom, isAtTop]);
+
+//   useEffect(() => {
+//     if (isAtBottom) {
+//       listRef.current?.scrollTo(0);
+//     }
+//   }, [props.messages.length, isAtBottom]);
+
+//   return (
+//     <div className="chat-list-container">
+//       <List
+//         ref={listRef}
+//         height={props.height}
+//         width={props.width}
+//         itemCount={props.messages.length}
+//         itemSize={getItemSize}
+//         itemKey={index => props.messages[index].uuid}
+//         onScroll={handleScroll}
+//         outerRef={listOuterRef}
+//       >
+//         {({ index, style }) => (
+//           <MessageItem 
+//             key={props.messages[index].uuid}
+//             message={props.messages[index]}
+//             index={index}
+//             itemHeightCallback={setItemHeight}
+//           />
+//         )}
+//       </List>
+//     </div>
+//   );
+// });
