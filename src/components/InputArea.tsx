@@ -1,10 +1,15 @@
-import React from "react";
+import React, { useImperativeHandle } from "react";
 
 type InputAreaProps = {
   onEnter: (text: string) => void
 }
 
-export default React.forwardRef(function InputArea(props: InputAreaProps, ref: React.Ref<HTMLTextAreaElement>) {
+export interface InputAreaRef {
+  appendText: (txt: string) => void,
+  clear: () => void
+}
+
+export default React.forwardRef<InputAreaRef, InputAreaProps>((props, ref) => {
 
   const [textValue, setTextValue] = React.useState('')
 
@@ -20,6 +25,15 @@ export default React.forwardRef(function InputArea(props: InputAreaProps, ref: R
     }
   }
 
+  useImperativeHandle(ref, () => ({
+    appendText: (txt: string) => {
+      setTextValue(pre => pre + txt)
+    },
+    clear: () => {
+      setTextValue('')
+    }
+  }));
+
   return (
     <textarea
       style={{
@@ -34,7 +48,7 @@ export default React.forwardRef(function InputArea(props: InputAreaProps, ref: R
       onKeyDown={handleTextareaKeyDwon}
       value={textValue}
       onChange={e => setTextValue(e.target.value)}
-      ref={ref}
+      // ref={ref}
     />
   )
 })

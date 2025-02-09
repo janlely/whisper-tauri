@@ -1,8 +1,6 @@
 import { Box, Divider, Stack, Typography } from "@mui/material";
-// import AutoSizer from 'react-virtualized-auto-sizer';
 import { AudioMessage, Member, Message, MessageState, MessageType, TextMessage } from "../types";
 import React, { useEffect, useRef } from "react";
-import MemberItem from "../components/MemberItem";
 import { uniqueByProperty } from "../utils";
 import { listen } from '@tauri-apps/api/event';
 import * as Storage from '../storage'
@@ -10,7 +8,7 @@ import * as Net from '../net'
 import { error, info } from "@tauri-apps/plugin-log";
 import CropOriginalIcon from '@mui/icons-material/CropOriginal';
 import Emoji from "../components/Emoji";
-import InputArea from "../components/InputArea";
+import InputArea, { InputAreaRef } from "../components/InputArea";
 import { useNavigate } from 'react-router';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import MessageList, { ListRef } from "../components/MessageList.tsx";
@@ -35,7 +33,7 @@ export default function Rome() {
 
   const [messages, setMessages] = React.useState<Message[]>([])
   const messagesRef = React.useRef<Message[]>([]);
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
+  const textareaRef = React.useRef<InputAreaRef>(null)
   const navigate = useNavigate()
   const usernameRef = React.useRef<string>('')
   const [roomId, setRoomId] = React.useState<string>('')
@@ -307,6 +305,7 @@ export default function Rome() {
     }
     updateMessages(pre => [...pre,message])
     msgListRef.current?.scrollToEnd()
+    textareaRef.current?.clear()
     // Storage.saveMessage(message).then(id => {
     //   sendMessage(message, id)
     //   setQuoteMsg(null)
@@ -473,7 +472,7 @@ export default function Rome() {
         </Box>
         <Divider />
         <Stack direction='row' spacing={1} sx={{ flex: 0.05, paddingTop: 0.5, paddingLeft: 0.5 }}>
-          <Emoji />
+          <Emoji onPick={(txt) => textareaRef.current?.appendText(txt)}/>
           <CropOriginalIcon />
         </Stack>
         <Box sx={{ flex: 0.25 }}>

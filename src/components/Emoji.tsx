@@ -2,7 +2,11 @@ import SentimentSatisfiedAltIcon from '@mui/icons-material/SentimentSatisfiedAlt
 import EmojiPicker from 'emoji-picker-react';
 import React from 'react';
 
-export default function Emoji() {
+type EmojiProps = {
+  onPick: (emoji: string) => void
+}
+
+export default function Emoji({onPick}: EmojiProps) {
   const emojiRef = React.useRef<HTMLDivElement>(null);
   const [showEmoji, setShowEmoji] = React.useState(false);
   const [pos, setPos] = React.useState({ x: 0, y: 0 });
@@ -31,16 +35,17 @@ export default function Emoji() {
   return (
     <div ref={emojiRef}>
       <SentimentSatisfiedAltIcon onClick={() => setShowEmoji(!showEmoji)} />
-      {showEmoji && <TheEmojiPicker anchorPos={pos} />}
+      {showEmoji && <TheEmojiPicker anchorPos={pos} onPick={onPick}/>}
     </div>
   );
 }
 
 type EmojiPickerProps = {
   anchorPos: { x: number; y: number };
+  onPick: (emoji: string) => void;
 };
 
-function TheEmojiPicker({ anchorPos }: EmojiPickerProps) {
+function TheEmojiPicker({ anchorPos, onPick }: EmojiPickerProps) {
   const pickerRef = React.useRef<HTMLDivElement>(null);
   const [position, setPosition] = React.useState({ top: 0, left: 0 });
   const [visible, setVisible] = React.useState(false);
@@ -79,7 +84,9 @@ function TheEmojiPicker({ anchorPos }: EmojiPickerProps) {
         zIndex: 9999, // 确保在顶层
       }}
     >
-      <EmojiPicker />
+      <EmojiPicker onEmojiClick={(e) => {
+        onPick(e.emoji)
+      }} />
     </div>
   );
 }
