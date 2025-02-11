@@ -1,7 +1,6 @@
 import { Avatar, Stack, Typography } from "@mui/material"
 import { Member } from "../types"
-import { forwardRef, useEffect, useRef } from "react"
-import { info } from "@tauri-apps/plugin-log"
+import { forwardRef, useRef } from "react"
 import { convertFileSrc } from "@tauri-apps/api/core"
 
 export type MemberItemProps = {
@@ -11,9 +10,8 @@ export type MemberItemProps = {
   onLoad: () => void
 }
 export default forwardRef<HTMLDivElement, MemberItemProps>(({ member, style, onLoad, index }, ref) => {
-// export default function MemberItem({member, index, onLoad }: MemberItemProps) {
   const itemRef = useRef<HTMLDivElement>(null)
-  info(`member avatar: ${member.avatar}`)
+  // info(`member avatar: ${member.avatar}`)
 
   return (
     <div ref={ref} style={style} onLoad={onLoad}>

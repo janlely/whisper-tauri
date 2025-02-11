@@ -1,43 +1,58 @@
 import { Avatar, Paper, Stack, styled } from "@mui/material"
 import { AudioMessage, ImageMessage, Message, MessageType, TextMessage } from "../types"
 import { CSSProperties, useRef } from "react"
-import { info } from "@tauri-apps/plugin-log"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import AudioAnimatedIcon from "./AudioAnimationIcon"
 import React from "react"
+import { preventWheel } from "../App"
 
 export type MessageItemProps = {
   message: Message,
   style: any,
   onLoad: () => void
   index: number,
+  popUpOperator: (rect: DOMRect, msg: Message) => void
 }
 
+
+export default React.forwardRef<HTMLDivElement, MessageItemProps>(({ message, style, onLoad, index, popUpOperator }, ref) => {
+
+  // info(`message avatar: ${message.avatar}`)
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  const onRightClick = () => {
+    popUpOperator(contentRef.current!.getBoundingClientRect(), message)
+    preventWheel()
+  }
+  
+  return (
+    <div ref={ref} style={style} onLoad={onLoad}>
+      <Stack direction={message.isSender ? 'row-reverse' : 'row'} padding={1} spacing={2}>
+        <div />
+        <Avatar src={convertFileSrc(message.avatar!)} sx={{ alignSelf: 'center' }} />
+        <Content ref={contentRef} msg={message} onRightClick={onRightClick}/>
+      </Stack>
+    </div>
+  )
+})
+
+
 const TextPaper = styled(Paper)(({ theme }) => ({
-  maxWidth: '40%',
+  // maxWidth: '40%',
   padding: theme.spacing(2),
   ...theme.typography.body2,
   textAlign: 'center',
   whiteSpace: 'pre-wrap',
 }));
 
-export default React.forwardRef<HTMLDivElement, MessageItemProps>(({ message, style, onLoad, index }, ref) => {
-  const itemRef = useRef<HTMLDivElement>(null)
-  info(`message avatar: ${message.avatar}`)
+type ContentProps = {
+  msg: Message,
+  onRightClick: () => void
+}
 
-
-  return (
-    <div ref={ref} style={style} onLoad={onLoad}>
-      <Stack ref={itemRef} direction={message.isSender ? 'row-reverse' : 'row'} padding={1} spacing={2}>
-        <div />
-        <Avatar src={convertFileSrc(message.avatar!)} sx={{ alignSelf: 'center' }} />
-        <Content msg={message} />
-      </Stack>
-    </div>
-  )
-})
-
-function Content({msg}: {msg: Message}) {
+const Content = React.forwardRef<HTMLDivElement, ContentProps>(
+  ({msg, onRightClick}, ref) => {
+    
   const [playing, setPlaying] = React.useState(false)
   const styles = {
     audioContainer: {
@@ -64,11 +79,14 @@ function Content({msg}: {msg: Message}) {
     justifyContent: msg.isSender ? 'flex-end' : 'flex-start',
     flexDirection: msg.isSender ? 'row-reverse' : 'row'
   };
+  
+  let content;
   switch (msg.type) {
     case MessageType.TEXT:
-      return (<TextPaper>{(msg.content as TextMessage).text}</TextPaper>)
+      content = (<TextPaper>{(msg.content as TextMessage).text}</TextPaper>)
+      break;
     case MessageType.IMAGE:
-      return (
+      content = (
         <div style={{ width: '100px' }}>
           {/* 设置固定宽度，保持原图片的长宽比 */}
           <img
@@ -81,8 +99,9 @@ function Content({msg}: {msg: Message}) {
           />
         </div>
       )
+      break;
     case MessageType.AUDIO:
-      return (
+      content = (
         <div
           onClick={() => setPlaying(!playing)}
           role="button"
@@ -99,7 +118,16 @@ function Content({msg}: {msg: Message}) {
           />
         </div>
       )
+      break;
     default:
-      return null
+      content = (<p>not supported</p>)
   }
-}
+
+  return (
+    <div ref={ref} style={{maxWidth: '40%'}} onContextMenu={onRightClick}>
+      {content}
+    </div>
+  )
+  } 
+)
+

@@ -2,11 +2,12 @@ import React, { useImperativeHandle } from "react";
 
 type InputAreaProps = {
   onEnter: (text: string) => void
+  style?: React.CSSProperties
 }
 
 export interface InputAreaRef {
   appendText: (txt: string) => void,
-  clear: () => void
+  clear: () => void,
 }
 
 export default React.forwardRef<InputAreaRef, InputAreaProps>((props, ref) => {
@@ -38,12 +39,13 @@ export default React.forwardRef<InputAreaRef, InputAreaProps>((props, ref) => {
     <textarea
       style={{
         width: '100%',
-        height: '100%',
+        // maxHeight: '100%',
         resize: 'none',
         border: 'none',
         padding: 10,
         outline: 'none',
-        fontSize: 16
+        fontSize: 16,
+        ...props.style
       }}
       onKeyDown={handleTextareaKeyDwon}
       value={textValue}

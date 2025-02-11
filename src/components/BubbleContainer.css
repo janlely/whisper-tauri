@@ -1,0 +1,28 @@
+/* BubbleContainer.css */
+
+.bubble-container {
+  position: relative;
+  display: inline-block;
+  width: 300px; /* 固定宽度 */
+  color: white;
+  border-radius: 5px;
+  padding: 10px;
+  margin: 20px;
+}
+
+.bubble-container.arrow::before {
+  content: '';
+  position: absolute;
+  top: -20px; /* 箭头在右方 */
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 10px;
+  border-style: solid;
+  border-color:  transparent transparent var(--container-bg, #000000) transparent ;
+}
+
+.bubble-content {
+  display: flex;
+  flex-wrap: wrap; /* 自动换行 */
+  gap: 10px; /* 子元素之间的间距 */
+}

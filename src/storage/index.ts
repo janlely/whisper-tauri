@@ -27,12 +27,13 @@ export async function getValue(key: string): Promise<string | null> {
   info(`get key: ${key}`)
   const db = await getDB();
   try {
-    const row: { value: string } = await db.select(`SELECT value FROM kv WHERE key = ?`, [key])
+    const row: [{ value: string }] = await db.select(`SELECT value FROM kv WHERE key = ?`, [key])
+    info(`row result: ${JSON.stringify(row)}`)
     if (!row) {
       info(`no key: ${key}`)
     }
-    info(`get value: ${row?.value}`)
-  return row!.value
+    info(`get value: ${row[0].value}`)
+  return row[0].value
   } catch (e) {
     error(`error getValue: ${e}`)
     return null
@@ -40,6 +41,7 @@ export async function getValue(key: string): Promise<string | null> {
 }
 
 export async function setValue(key: string, value: string) {
+  info(`set key: ${key}, value: ${value}`)
   const db = await getDB();
   await db.execute(`INSERT OR REPLACE INTO kv (key, value) VALUES(?, ?)`, [key, value])
 }

@@ -7,7 +7,8 @@ import { info } from '@tauri-apps/plugin-log';
 type MessageListProps = {
   messages: Message[],
   width: number,
-  height: number
+  height: number,
+  popUpOperator: (rect: DOMRect, msg: Message) => void
 }
 
 export interface ListRef {
@@ -80,6 +81,7 @@ export default forwardRef<ListRef, MessageListProps>((props, ref) => {
               style={p.style}
               onLoad={measure}
               index={p.index}
+              popUpOperator={props.popUpOperator}
             />
           )}
         </CellMeasurer>

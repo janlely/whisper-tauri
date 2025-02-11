@@ -1,0 +1,6 @@
+.no-select {
+  user-select: none;
+  -webkit-user-select: none; /* 针对 WebKit 浏览器 */
+  -moz-user-select: none;    /* 针对 Firefox */
+  -ms-user-select: none;     /* 针对旧版 IE 和 Edge */
+}

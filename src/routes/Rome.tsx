@@ -2,7 +2,7 @@ import { Box, Divider, Stack, Typography } from "@mui/material";
 import { AudioMessage, Member, Message, MessageState, MessageType, TextMessage } from "../types";
 import React, { useEffect, useRef } from "react";
 import { uniqueByProperty } from "../utils";
-import { listen } from '@tauri-apps/api/event';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import * as Storage from '../storage'
 import * as Net from '../net'
 import { error, info } from "@tauri-apps/plugin-log";
@@ -14,6 +14,10 @@ import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import MessageList, { ListRef } from "../components/MessageList.tsx";
 import { AutoSizer } from 'react-virtualized'
 import MemberList from "../components/MemberList.tsx";
+import BubbleContainer from "../components/BubbleContainer.tsx";
+import { DeleteIcon, MessageOperator, QuoteIcon } from "../components/MessageOperator.tsx";
+import { preventWheel, recoverWheel } from "../App.tsx";
+import LogoutIcon from '@mui/icons-material/Logout';
 
 type UpdateMessages = {
   (newMessages: Message[]): void;
@@ -38,10 +42,20 @@ export default function Rome() {
   const usernameRef = React.useRef<string>('')
   const [roomId, setRoomId] = React.useState<string>('')
   const roomIdRef = React.useRef<string>('')
+  const [opMsg, setOpMsg] = React.useState<Message|null>(null)
   const [quoteMsg, setQuoteMsg] = React.useState<Message|null>(null)
+  // const [showQuoteMsg, setShowQuoteMsg] = React.useState(false)
   const connectExpire = React.useRef<number>(0) 
   const pingTaskRef = React.useRef<NodeJS.Timeout | null>(null)
   const msgListRef = useRef<ListRef>(null)
+
+  //******start Operator******
+  const [showOperation, setShowOperation] = React.useState(false)
+  const [opTop, setOpTop] = React.useState<number>(0)
+  const [opLeft, setOpLeft] = React.useState<number>(0)
+  const opRef = useRef<HTMLDivElement>(null)
+  //******end Operator******
+
 
   useEffect(() => {
 
@@ -378,11 +392,55 @@ export default function Rome() {
     }, 15000)
   }
 
+  
+  const addMsgOpListener = (): Promise<UnlistenFn> => {
+    info('addMsgOpListener')
+    return listen<{ type: string, msg: Message }>('messageOperation', (event) => {
+      const { type, msg } = event.payload
+      info(`messageOperation: ${JSON.stringify(event.payload)}`)
+      if (msg.roomId !== roomIdRef.current) {
+        info(`not my message, roomId1: ${msg.roomId}, roomId2: ${roomIdRef.current}`)
+        return
+      }
+      if (type === 'delete') {
+        // deleteMessage(msg.uuid)
+      } else if (type === 'copy' && msg.type === MessageType.TEXT) {
+        writeText((msg.content as TextMessage).text)
+      } else if (type === 'recall') {
+        // recallMessage(msg.uuid)
+      } else if (type === 'quote') {
+        setQuoteMsg(msg)
+      }
+    })
+  }
+
+  const enstableConnection = () => {
+    info(`connect to room: ${roomIdRef.current}`)
+    Net.connect(roomIdRef.current, () => {
+      info("connected")
+      connectExpire.current = Date.now() + 30000
+      pingEvery15Seconds()
+      syncMessages()
+    }, (msg: string) => {
+      if (msg === "notify") {
+        syncMessages()
+      } else if (msg === "pong") {
+        info("pong")
+        connectExpire.current = Date.now() + 30000
+      } else if (msg.startsWith('recall')) {
+        // handleOthersRecall(parseInt(msg.substring(7)))
+      }
+    }, () => {
+      logout()
+    })
+  }
+
   useEffect(() => {
     Promise.all([
       Storage.getValue('username'),
       Storage.getValue('lastLoginRoom')
     ]).then(([username, lastLoginRoom]) => {
+      info(`username: ${username}, lastLoginRoom: ${lastLoginRoom}`)
       if (!username || !lastLoginRoom) {
         logout()
         return
@@ -393,50 +451,69 @@ export default function Rome() {
       getLocalMessages()
       //拉取最新消息
       syncMessages()
-      //订阅消息上面的操作
-      listen<{ type: string, msg: Message }>('messageOperation', (event) => {
-        const {type, msg} = event.payload
-        if (msg.roomId !== roomIdRef.current) {
-          info('not my message')
-          return
-        }
-        if (type === 'delete') {
-          // deleteMessage(msg.uuid)
-        } else if (type === 'copy' && msg.type === MessageType.TEXT) {
-          writeText((msg.content as TextMessage).text)
-        } else if (type === 'recall' && msg.type === MessageType.TEXT) {
-          // recallMessage(msg.uuid)
-        } else if (type === 'quote' && msg.type === MessageType.TEXT) {
-          // quoteMessage(msg)
-        }
-      })
+      //建立websocket连接
+      enstableConnection()
 
-      info(`connect to room: ${roomIdRef.current}`)
-      Net.connect(roomIdRef.current, () => {
-        info("connected")
-        connectExpire.current = Date.now() + 30000
-        pingEvery15Seconds()
-        syncMessages()
-      }, (msg: string) => {
-        if (msg === "notify") {
-          syncMessages()
-        } else if (msg === "pong") {
-          info("pong")
-          connectExpire.current = Date.now() + 30000
-        } else if (msg.startsWith('recall')) {
-          // handleOthersRecall(parseInt(msg.substring(7)))
-        }
-      }, () => {
-        logout()
-      })
     }).catch(e => {
       error(`useEffect error: ${JSON.stringify(e)}`)
       logout()
     })
+
+    //订阅消息上面的操作
+    const opListener = addMsgOpListener()
+    return () => {
+      opListener.then(unlisten => {
+        unlisten()
+      })
+    }
   }, [])
 
   const logout = () => {
     navigate('/login')
+  }
+
+  const openOperationMenu = () => {
+    setShowOperation(true)
+    preventWheel()
+  }
+  const closeOperationMenu = () => {
+    setShowOperation(false)
+    recoverWheel()
+  }
+  const popUpOperator = (rect: DOMRect, msg: Message) => {
+    info(`popUpOperator: ${JSON.stringify(rect)}`)
+    setOpTop(rect.top + rect.height - 10)
+    setOpLeft(rect.left + rect.width / 2 - 120)
+    setOpMsg(msg)
+    openOperationMenu()
+
+    // 监听全局点击事件以关闭菜单
+    const handleClickOutside = (_: MouseEvent) => {
+      setTimeout(() => {
+        closeOperationMenu()
+        document.removeEventListener('mousedown', handleClickOutside); // 移除事件监听器
+      }, 100)
+    };
+
+    // 添加全局点击事件监听器
+    document.addEventListener('mousedown', handleClickOutside, {passive: true});
+  }
+
+  const getQuoteContent = (msg: Message): string => {
+    if (msg.type === MessageType.TEXT) {
+      return (msg.content as TextMessage).text
+    }
+    if (msg.type === MessageType.IMAGE) {
+      return '[图片]'
+    }
+    if (msg.type === MessageType.VIDEO) {
+      return '[视频]'
+    }
+
+    if (msg.type === MessageType.AUDIO) {
+      return '[语音]'
+    }
+    return ''
   }
 
   return (
@@ -454,8 +531,18 @@ export default function Rome() {
       </Box>
       <Divider orientation="vertical" />
       <Stack sx={{ flex: 1 }}>
-        <Box sx={{ flex: 0.1, backgroundColor: 'white', justifyContent: 'space-between' }}>
-          <Typography variant="h5">{roomIdRef.current}</Typography>
+        <Box sx={{
+          flex: 0.1,
+          backgroundColor: 'white',
+          justifyContent: 'space-between',
+          alignContent: 'center',
+          alignItems: 'center',
+          display: 'flex',
+          flexDirection: 'row',
+          padding: '0 10px'
+        }}>
+          <Typography>{roomId}</Typography>
+          <LogoutIcon onClick={logout} />
         </Box>
         <Divider />
         <Box sx={{ flex: 1 }}>
@@ -466,6 +553,7 @@ export default function Rome() {
                 messages={messages}
                 height={height}
                 width={width}
+                popUpOperator={popUpOperator}
               />
             )}
           </AutoSizer>
@@ -475,10 +563,62 @@ export default function Rome() {
           <Emoji onPick={(txt) => textareaRef.current?.appendText(txt)}/>
           <CropOriginalIcon />
         </Stack>
-        <Box sx={{ flex: 0.25 }}>
-          <InputArea onEnter={sendText} ref={textareaRef} />
+        <Box sx={{ flex: 0.25, display: 'flex', flexDirection: 'column' }}>
+          <InputArea onEnter={sendText} ref={textareaRef} style={{ flex: 1 }} />
+          {quoteMsg && (
+            <div
+              style={{
+                display: 'flex',
+                marginBottom: 5 
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginLeft: 10,
+                  backgroundColor: 'lightgray',
+                  borderRadius: 2,
+                  maxWidth: 300,
+                  padding: '0 10px'
+                }}
+              >
+                <Typography sx={{maxWidth: 280}} noWrap>{quoteMsg!.senderId}: {getQuoteContent(quoteMsg!)}</Typography>
+                <svg viewBox="0 0 1024 1024" height="20" width="20" fill="#000000" onClick={() => setQuoteMsg(null)} >
+                  <g id="SVGRepo_bgCarrier" stroke-width="0" />
+                  <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round" />
+                  <g id="SVGRepo_iconCarrier">
+                    <path d="M512 897.6c-108 0-209.6-42.4-285.6-118.4-76-76-118.4-177.6-118.4-285.6 0-108 42.4-209.6 118.4-285.6 76-76 177.6-118.4 285.6-118.4 108 0 209.6 42.4 285.6 118.4 157.6 157.6 157.6 413.6 0 571.2-76 76-177.6 118.4-285.6 118.4z m0-760c-95.2 0-184.8 36.8-252 104-67.2 67.2-104 156.8-104 252s36.8 184.8 104 252c67.2 67.2 156.8 104 252 104 95.2 0 184.8-36.8 252-104 139.2-139.2 139.2-364.8 0-504-67.2-67.2-156.8-104-252-104z" fill="gray" />
+                    <path d="M707.872 329.392L348.096 689.16l-31.68-31.68 359.776-359.768z" fill="gray" />
+                    <path d="M328 340.8l32-31.2 348 348-32 32z" fill="gray" />
+                  </g>
+                </svg>
+              </div>
+            </div>
+          )}
         </Box>
       </Stack>
+      {showOperation && (
+        <BubbleContainer
+          ref={opRef}
+          style={{
+            position: 'fixed',
+            opacity: 0.9,
+            backgroundColor: 'lightgray',
+            width: 200,
+            top: `${opTop}px`,
+            left: `${opLeft}px`,
+          }}
+        >
+          <MessageOperator label='删除' msg={opMsg}>
+            <DeleteIcon />
+          </MessageOperator>
+          <MessageOperator label='引用' msg={opMsg}>
+            <QuoteIcon/>
+          </MessageOperator>
+        </BubbleContainer>
+      )}
     </Stack>
   )
 }
